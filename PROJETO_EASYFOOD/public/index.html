@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Software Architecture - Easy Food</title>
+  <meta name="description" content="Restaurant management and catalog API for Software Architecture class">
+  <meta property="og:title" content="Software Architecture - Easy Food">
+  <meta property="og:description" content="Restaurant management and catalog API for Software Architecture class">
+  <meta property="og:type" content="website">
+  <style>
+    :root {
+      --primary: #e63946;
+      --primary-hover: #d62828;
+      --bg: #f8f9fa;
+      --card-bg: #ffffff;
+      --text: #1d3557;
+      --text-muted: #6c757d;
+      --border: #e9ecef;
+      --tag-bg: #f1faee;
+      --tag-text: #1d3557;
+      --star: #ffb703;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding-bottom: 3rem;
+    }
+
+    header {
+      background: white;
+      border-bottom: 1px solid var(--border);
+      padding: 1.25rem 2rem;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    .header-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .brand-icon {
+      font-size: 2rem;
+    }
+
+    .brand h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary);
+      margin: 0;
+    }
+
+    .brand p {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+    }
+
+    .api-badge {
+      background: #e8f4fd;
+      color: #0d6efd;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+    }
+
+    .api-dot {
+      width: 8px;
+      height: 8px;
+      background: #198754;
+      border-radius: 50%;
+    }
+
+    main {
+      max-width: 1200px;
+      margin: 2rem auto;
+      padding: 0 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      gap: 2rem;
+    }
+
+    @media (max-width: 900px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .catalog-section {
+      display: flex;
+      flex-direction: column;
+      gap: 1.25rem;
+    }
+
+    .controls-bar {
+      display: flex;
+      gap: 1rem;
+      flex-wrap: wrap;
+    }
+
+    .search-input {
+      flex: 1;
+      min-width: 200px;
+      padding: 0.65rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: white;
+    }
+
+    .filter-select {
+      padding: 0.65rem 1rem;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      font-size: 0.95rem;
+      background: white;
+    }
+
+    .restaurant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+
+    .restaurant-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      padding: 1.25rem;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .restaurant-card:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.06);
+    }
+
+    .restaurant-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 0.75rem;
+    }
+
+    .restaurant-name {
+      font-size: 1.15rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    .restaurant-id {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    .category-badge {
+      display: inline-block;
+      background: var(--tag-bg);
+      color: var(--tag-text);
+      padding: 0.25rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 500;
+      margin-top: 0.25rem;
+      text-transform: capitalize;
+    }
+
+    .rating-row {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      margin-top: 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+    }
+
+    .star-icon {
+      color: var(--star);
+    }
+
+    /* Form Panel */
+    .form-panel {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+      height: fit-content;
+      position: sticky;
+      top: 6rem;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    }
+
+    .form-title {
+      font-size: 1.2rem;
+      font-weight: 700;
+      margin-bottom: 0.5rem;
+      color: var(--text);
+    }
+
+    .form-desc {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      margin-bottom: 1.25rem;
+    }
+
+    .form-group {
+      margin-bottom: 1rem;
+    }
+
+    label {
+      display: block;
+      font-size: 0.85rem;
+      font-weight: 600;
+      margin-bottom: 0.35rem;
+      color: var(--text);
+    }
+
+    input[type="text"],
+    input[type="number"],
+    select {
+      width: 100%;
+      padding: 0.65rem 0.85rem;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      font-size: 0.9rem;
+    }
+
+    input:focus, select:focus {
+      outline: 2px solid var(--primary);
+      border-color: transparent;
+    }
+
+    .btn {
+      width: 100%;
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.75rem 1rem;
+      font-size: 0.95rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--primary-hover);
+    }
+
+    .alert {
+      padding: 0.75rem;
+      border-radius: 6px;
+      margin-bottom: 1rem;
+      font-size: 0.85rem;
+      display: none;
+    }
+
+    .alert-success {
+      background: #d1e7dd;
+      color: #0f5132;
+    }
+
+    .alert-danger {
+      background: #f8d7da;
+      color: #842029;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 3rem;
+      color: var(--text-muted);
+      background: white;
+      border-radius: 12px;
+      border: 1px dashed var(--border);
+      grid-column: 1 / -1;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-container">
+      <div class="brand">
+        <span class="brand-icon">🍽️</span>
+        <div>
+          <h1>Easy Food</h1>
+          <p>Software Architecture Class - FECAF</p>
+        </div>
+      </div>
+      <div class="api-badge">
+        <span class="api-dot"></span>
+        API Online: /restaurants
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <section class="catalog-section">
+      <div class="controls-bar">
+        <input type="text" id="searchInput" class="search-input" placeholder="Buscar por nome ou categoria...">
+        <select id="categoryFilter" class="filter-select">
+          <option value="">Todas as Categorias</option>
+        </select>
+        <select id="sortFilter" class="filter-select">
+          <option value="id-asc">Padrão (ID)</option>
+          <option value="rating-desc">Maior Avaliação</option>
+          <option value="name-asc">Nome (A-Z)</option>
+        </select>
+      </div>
+
+      <div id="restaurantGrid" class="restaurant-grid">
+        <!-- Rendered dynamically -->
+      </div>
+    </section>
+
+    <aside class="form-panel">
+      <h2 class="form-title">Cadastrar Restaurante</h2>
+      <p class="form-desc">Envia para <code>POST /restaurants</code></p>
+      
+      <div id="formAlert" class="alert"></div>
+
+      <form id="restaurantForm">
+        <div class="form-group">
+          <label for="name">Nome do Restaurante *</label>
+          <input type="text" id="name" required placeholder="Ex: Sabor & Arte">
+        </div>
+
+        <div class="form-group">
+          <label for="category">Categoria *</label>
+          <input type="text" id="category" required placeholder="Ex: Pizza, Japonesa, Vegana">
+        </div>
+
+        <div class="form-group">
+          <label for="rating">Avaliação (0 a 5) *</label>
+          <input type="number" id="rating" step="0.1" min="0" max="5" required placeholder="Ex: 4.5">
+        </div>
+
+        <button type="submit" class="btn">Cadastrar Restaurante</button>
+      </form>
+    </aside>
+  </main>
+
+  <script>
+    let restaurants = [];
+
+    async function loadRestaurants() {
+      try {
+        const response = await fetch('/restaurants');
+        if (!response.ok) throw new Error('Falha ao buscar restaurantes');
+        restaurants = await response.json();
+        updateCategories();
+        renderRestaurants();
+      } catch (err) {
+        console.error('Erro:', err);
+        const grid = document.getElementById('restaurantGrid');
+        grid.innerHTML = `<div class="empty-state">Erro ao carregar restaurantes do servidor.</div>`;
+      }
+    }
+
+    function updateCategories() {
+      const select = document.getElementById('categoryFilter');
+      const currentVal = select.value;
+      const categories = [...new Set(restaurants.map(r => r.category))].filter(Boolean);
+      
+      select.innerHTML = '<option value="">Todas as Categorias</option>';
+      categories.forEach(cat => {
+        const opt = document.createElement('option');
+        opt.value = cat;
+        opt.textContent = cat.charAt(0).toUpperCase() + cat.slice(1);
+        select.appendChild(opt);
+      });
+      select.value = currentVal;
+    }
+
+    function renderRestaurants() {
+      const grid = document.getElementById('restaurantGrid');
+      const searchTerm = document.getElementById('searchInput').value.toLowerCase().trim();
+      const selectedCategory = document.getElementById('categoryFilter').value;
+      const sortBy = document.getElementById('sortFilter').value;
+
+      let filtered = restaurants.filter(r => {
+        const matchesSearch = !searchTerm || 
+          (r.name && r.name.toLowerCase().includes(searchTerm)) ||
+          (r.category && r.category.toLowerCase().includes(searchTerm));
+        const matchesCategory = !selectedCategory || r.category === selectedCategory;
+        return matchesSearch && matchesCategory;
+      });
+
+      if (sortBy === 'rating-desc') {
+        filtered.sort((a, b) => ((b.Rating ?? b.rating ?? 0) - (a.Rating ?? a.rating ?? 0)));
+      } else if (sortBy === 'name-asc') {
+        filtered.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+      } else {
+        filtered.sort((a, b) => (a.id || 0) - (b.id || 0));
+      }
+
+      if (filtered.length === 0) {
+        grid.innerHTML = `<div class="empty-state">Nenhum restaurante encontrado.</div>`;
+        return;
+      }
+
+      grid.innerHTML = filtered.map(r => {
+        const rating = r.Rating !== undefined ? r.Rating : (r.rating !== undefined ? r.rating : 0);
+        return `
+          <div class="restaurant-card">
+            <div>
+              <div class="restaurant-header">
+                <h3 class="restaurant-name">${escapeHtml(r.name || '')}</h3>
+                <span class="restaurant-id">#${r.id}</span>
+              </div>
+              <span class="category-badge">${escapeHtml(r.category || '')}</span>
+            </div>
+            <div class="rating-row">
+              <span class="star-icon">★</span>
+              <span>${Number(rating).toFixed(1)}</span>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.getElementById('searchInput').addEventListener('input', renderRestaurants);
+    document.getElementById('categoryFilter').addEventListener('change', renderRestaurants);
+    document.getElementById('sortFilter').addEventListener('change', renderRestaurants);
+
+    document.getElementById('restaurantForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertBox = document.getElementById('formAlert');
+      alertBox.style.display = 'none';
+
+      const name = document.getElementById('name').value.trim();
+      const category = document.getElementById('category').value.trim();
+      const rating = parseFloat(document.getElementById('rating').value);
+
+      if (!name || !category || isNaN(rating)) {
+        alertBox.className = 'alert alert-danger';
+        alertBox.textContent = 'Por favor, preencha todos os campos corretamente.';
+        alertBox.style.display = 'block';
+        return;
+      }
+
+      try {
+        const response = await fetch('/restaurants', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name, category, rating })
+        });
+
+        if (!response.ok) {
+          const errData = await response.json().catch(() => ({}));
+          throw new Error(errData.error || 'Erro ao criar restaurante');
+        }
+
+        const newRest = await response.json();
+        restaurants.push(newRest);
+        updateCategories();
+        renderRestaurants();
+
+        document.getElementById('restaurantForm').reset();
+        alertBox.className = 'alert alert-success';
+        alertBox.textContent = `Restaurante "${newRest.name}" cadastrado com sucesso!`;
+        alertBox.style.display = 'block';
+        setTimeout(() => { alertBox.style.display = 'none'; }, 4000);
+      } catch (err) {
+        alertBox.className = 'alert alert-danger';
+        alertBox.textContent = err.message || 'Erro ao conectar ao servidor.';
+        alertBox.style.display = 'block';
+      }
+    });
+
+    loadRestaurants();
+  </script>
+</body>
+</html>
