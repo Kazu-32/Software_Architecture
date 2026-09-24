@@ -1,0 +1,5 @@
+{
+  "dependencies": {
+    "mailsender": "^1.1.2"
+  }
+}
