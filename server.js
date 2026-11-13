@@ -16,6 +16,7 @@ const server = app.listen(PORT, '0.0.0.0', async () => {
   console.log(`   - POST   /auth/register`);
   console.log(`   - POST   /auth/login`);
   console.log(`   - GET    /auth/me (protegido)`);
+  console.log(`   - POST   /auth/me/image (protegido)`);
   console.log(`   - GET    /restaurants (público)`);
   console.log(`   - GET    /restaurants/:id (público)`);
   console.log(`   - POST   /restaurants (protegido)`);

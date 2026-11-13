@@ -86,11 +86,29 @@ const inMemoryUserStore = {
       name: data.name,
       email: data.email.toLowerCase().trim(),
       password: data.password,
+      imageUrl: data.imageUrl || null,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
     inMemoryUsers.push(newUser);
     return { ...newUser };
+  },
+
+  update: async ({ where = {}, data = {} } = {}) => {
+    const id = parseInt(where.id, 10);
+    const user = inMemoryUsers.find((u) => u.id === id);
+    if (!user) {
+      const error = new Error(`Usuário não encontrado (id: ${id})`);
+      error.code = 'P2025';
+      error.statusCode = 404;
+      throw error;
+    }
+    if (data.name !== undefined) user.name = data.name;
+    if (data.email !== undefined) user.email = data.email.toLowerCase().trim();
+    if (data.password !== undefined) user.password = data.password;
+    if (data.imageUrl !== undefined) user.imageUrl = data.imageUrl;
+    user.updatedAt = new Date();
+    return { ...user };
   },
 };
 
@@ -303,6 +321,15 @@ const prisma = new Proxy({}, {
             }
           }
           return inMemoryUserStore.create(args);
+        },
+        update: async (args) => {
+          if (isConnected && realPrisma) {
+            try { return await realPrisma.user.update(args); }
+            catch (err) {
+              console.warn('[Prisma] Falha em user.update no banco real, usando fallback:', err.message);
+            }
+          }
+          return inMemoryUserStore.update(args);
         },
       };
     }

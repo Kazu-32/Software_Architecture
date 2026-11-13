@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const { prisma } = require('../../database/prisma');
+const imageService = require('../shared/image.service');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'easyfood-super-secret-key-2026';
 
@@ -9,6 +10,7 @@ const JWT_SECRET = process.env.JWT_SECRET || 'easyfood-super-secret-key-2026';
  * - Cadastro com hashing de senha via bcrypt
  * - Login com validação de credenciais via bcrypt.compare e geração de JWT
  * - Perfil do usuário autenticado (/auth/me)
+ * - Upload e otimização de imagem de perfil (/auth/me/image)
  */
 class AuthService {
   /**
@@ -35,7 +37,6 @@ class AuthService {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // Verifica se já existe um usuário cadastrado com este e-mail
     const existingUser = await prisma.user.findUnique({
       where: { email: normalizedEmail },
     });
@@ -46,7 +47,6 @@ class AuthService {
       throw error;
     }
 
-    // Hash da senha com salt de 10 rounds
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = await prisma.user.create({
@@ -57,11 +57,11 @@ class AuthService {
       },
     });
 
-    // Retorna sem expor o hash da senha
     return {
       id: user.id,
       name: user.name,
       email: user.email,
+      imageUrl: user.imageUrl || null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
     };
@@ -89,7 +89,6 @@ class AuthService {
       throw error;
     }
 
-    // Compara a senha informada com o hash salvo
     const isPasswordValid = await bcrypt.compare(password, user.password);
 
     if (!isPasswordValid) {
@@ -98,7 +97,6 @@ class AuthService {
       throw error;
     }
 
-    // Gera o token JWT com payload e validade de 24 horas
     const token = jwt.sign(
       {
         id: user.id,
@@ -115,6 +113,7 @@ class AuthService {
         id: user.id,
         name: user.name,
         email: user.email,
+        imageUrl: user.imageUrl || null,
       },
     };
   }
@@ -123,8 +122,15 @@ class AuthService {
    * Busca as informações do perfil do usuário autenticado.
    */
   async getProfile(userId) {
+    const numericId = parseInt(userId, 10);
+    if (isNaN(numericId) || numericId <= 0) {
+      const error = new Error('Identificador de usuário inválido');
+      error.statusCode = 400;
+      throw error;
+    }
+
     const user = await prisma.user.findUnique({
-      where: { id: parseInt(userId, 10) },
+      where: { id: numericId },
     });
 
     if (!user) {
@@ -137,8 +143,52 @@ class AuthService {
       id: user.id,
       name: user.name,
       email: user.email,
+      imageUrl: user.imageUrl || null,
       createdAt: user.createdAt,
       updatedAt: user.updatedAt,
+    };
+  }
+
+  /**
+   * Otimiza e vincula uma foto ao perfil do usuário autenticado.
+   */
+  async uploadProfileImage(userId, buffer) {
+    const numericId = parseInt(userId, 10);
+    if (isNaN(numericId) || numericId <= 0) {
+      const error = new Error('Identificador de usuário inválido');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id: numericId },
+    });
+
+    if (!user) {
+      const error = new Error('Usuário não encontrado');
+      error.statusCode = 404;
+      throw error;
+    }
+
+    const previousImageUrl = user.imageUrl;
+    const imageUrl = await imageService.optimizeImage(buffer, 'users');
+
+    const updatedUser = await prisma.user.update({
+      where: { id: numericId },
+      data: { imageUrl },
+    });
+
+    if (previousImageUrl && previousImageUrl !== imageUrl) {
+      await imageService.deleteImage(previousImageUrl);
+    }
+
+    return {
+      id: updatedUser.id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      imageUrl: updatedUser.imageUrl || null,
+      createdAt: updatedUser.createdAt,
+      updatedAt: updatedUser.updatedAt,
     };
   }
 }

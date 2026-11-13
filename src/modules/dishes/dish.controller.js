@@ -14,6 +14,7 @@ async function create(req, res) {
       error: error.statusCode
         ? error.message
         : 'Erro interno ao cadastrar prato',
+      statusCode: error.statusCode || 500,
     });
   }
 }
@@ -22,10 +23,13 @@ async function list(req, res) {
   try {
     const { restaurantId } = req.params;
     const dishes = await dishService.listDishes(restaurantId);
-    return res.json(dishes);
+    return res.status(200).json(dishes);
   } catch (error) {
-    return res.status(500).json({
-      error: 'Erro ao consultar pratos',
+    return res.status(error.statusCode || 500).json({
+      error: error.statusCode
+        ? error.message
+        : 'Erro ao consultar pratos',
+      statusCode: error.statusCode || 500,
     });
   }
 }
@@ -35,6 +39,7 @@ async function uploadImage(req, res) {
     if (!req.file) {
       return res.status(400).json({
         error: 'Nenhuma imagem enviada',
+        statusCode: 400,
       });
     }
 
@@ -43,12 +48,13 @@ async function uploadImage(req, res) {
       req.file.buffer
     );
 
-    return res.json(dish);
+    return res.status(200).json(dish);
   } catch (error) {
     return res.status(error.statusCode || 500).json({
       error: error.statusCode
         ? error.message
         : 'Erro ao processar imagem',
+      statusCode: error.statusCode || 500,
     });
   }
 }

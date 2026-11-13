@@ -1,6 +1,6 @@
 # Documentação de Arquitetura de Software - Easy Food
 
-Este documento descreve as decisões arquiteturais, padrões de projeto, estrutura organizacional, fluxo de autenticação, serviço de e-mail e processamento de imagens do cardápio adotados no projeto **Easy Food**.
+Este documento descreve as decisões arquiteturais, padrões de projeto, estrutura organizacional, fluxo de autenticação, serviço de e-mail e processamento compartilhado de imagens adotados no projeto **Easy Food**.
 
 ---
 
@@ -12,11 +12,11 @@ Optou-se pela arquitetura de **Monolito Modular** (*Modular Monolith*). O sistem
 - **Alta Coesão e Baixo Acoplamento**: Cada módulo encapsula suas rotas, controllers, serviços e regras de negócio.
 - **Módulo Compartilhado (`modules/shared`)**: Funcionalidades transversais residem em serviços reutilizáveis e agnósticos:
   - `email.service.js`: Envio de e-mails via API externa (Resend).
-  - `image.service.js`: Processamento, redimensionamento (máx 800px) e compressão em WebP via Sharp.
-  - `upload.middleware.js`: Interceptação de arquivos multipart em memória via Multer (limite de 5 MB).
-- **Independência Operacional**: Operações principais (persistência no banco de dados via Prisma) são desacopladas de ações secundárias (envio de e-mails e upload de imagens), garantindo que uma falha em uma ação secundária não cancele uma operação principal já concluída.
-- **Autenticação Stateless (JWT)**: Segurança de acesso a rotas protegidas sem dependência de sessões no servidor.
-- **Camada de Persistência Abstraída (Prisma ORM)**: Comunicação com o banco relacional via Prisma com suporte a migrations e persistência tolerante.
+  - `image.service.js`: Serviço reutilizável (`optimizeImage(buffer, folder)`) de processamento, correção de orientação, redimensionamento (máx 800px) e compressão em WebP via Sharp, utilizado tanto pelo módulo `auth` (perfis de usuários) quanto pelo módulo `dishes` (pratos do cardápio).
+  - `upload.middleware.js`: Interceptação de arquivos multipart em memória via Multer (formatos JPEG, PNG e WebP; limite de 5 MB).
+- **Independência Operacional**: Operações principais (persistência no banco de dados via Prisma) são desacopladas de ações secundárias (envio de e-mails e otimização assíncrona), garantindo manutenibilidade e isolamento de falhas.
+- **Autenticação Stateless (JWT)**: Segurança de acesso a rotas protegidas sem dependência de sessões no servidor. Nas rotas do usuário autenticado (`/auth/me` e `/auth/me/image`), o identificador é extraído exclusivamente do token JWT (`req.user.id`).
+- **Camada de Persistência Abstraída (Prisma ORM)**: Comunicação com o banco relacional via Prisma com suporte a migrations e fallback em memória tolerante.
 
 ---
 
@@ -39,11 +39,15 @@ easy-food/
 │   ├── migrations/                     # Histórico de migrações estruturais do Prisma
 │   │   ├── 20261110000000_init_auth_and_restaurants/
 │   │   │   └── migration.sql           # DDL de criação das tabelas users e restaurants
-│   │   └── 20261110000001_add_dishes/
-│   │       └── migration.sql           # DDL de criação da tabela dishes e foreign key
+│   │   ├── 20261110000001_add_dishes/
+│   │   │   └── migration.sql           # DDL de criação da tabela dishes e foreign key
+│   │   └── 20261112000002_add_user_image_url/
+│   │       └── migration.sql           # DDL adicionando image_url em users
 │   └── schema.prisma                   # Modelos de dados (User, Restaurant e Dish)
-├── public/
-│   └── index.html                      # Interface web do usuário (CSR)
+├── public/                             # Interface web estática do cliente
+│   ├── index.html                      # Estrutura semântica e modais (cardápio, cadastro, perfil)
+│   ├── styles.css                      # Estilização editorial responsiva
+│   └── app.js                          # Integração com a API REST e upload multipart
 ├── src/
 │   ├── app.js                          # Configuração central do Express, middlewares, estáticos e rotas
 │   ├── database/
@@ -51,8 +55,8 @@ easy-food/
 │   │   └── prisma.js                   # Instância do Prisma Client com fallback tolerante
 │   └── modules/
 │       ├── auth/                       # Módulo de Autenticação e Usuários
-│       │   ├── auth.service.js         # Lógica de negócio: hash bcrypt, validações e JWT
-│       │   ├── auth.controller.js      # Tratamento de req/res HTTP (/register, /login, /me)
+│       │   ├── auth.service.js         # Lógica: bcrypt, JWT, perfil e foto de usuário
+│       │   ├── auth.controller.js      # Tratamento HTTP (/register, /login, /me, /me/image)
 │       │   ├── auth.middleware.js      # Interceptador: valida Authorization: Bearer <token>
 │       │   └── auth.routes.js          # Definição dos caminhos /auth
 │       ├── restaurants/                # Módulo de Restaurantes
@@ -60,16 +64,17 @@ easy-food/
 │       │   ├── restaurant.controller.js# Tratamento de req/res HTTP (/restaurants)
 │       │   └── restaurant.routes.js    # Definição das rotas públicas e protegidas
 │       ├── dishes/                     # Módulo de Cardápio (Pratos)
-│       │   ├── dish.service.js         # Regras de negócio, vínculo com restaurante e imagem
-│       │   ├── dish.controller.js      # Tratamento de req/res HTTP (/dishes)
+│       │   ├── dish.service.js         # Validações de prato, vínculo e upload de imagem
+│       │   ├── dish.controller.js      # Tratamento de req/res HTTP (/dishes) com propagação de statusCode
 │       │   └── dish.routes.js          # Definição dos endpoints de prato e upload
 │       └── shared/                     # Módulo Compartilhado Transversal
 │           ├── email.service.js        # Serviço genérico de e-mail (Resend API)
-│           ├── image.service.js        # Otimização e compressão de imagens com Sharp
+│           ├── image.service.js        # Serviço reutilizável de otimização WebP com Sharp
 │           └── upload.middleware.js    # Interceptador multipart/form-data com Multer
+├── tests/                              # Testes automatizados (node:test)
 ├── uploads/                            # Armazenamento local das imagens otimizadas
-│   └── dishes/                         # Imagens WebP geradas pelo processamento
-├── .env                                # Variáveis de ambiente locais
+│   ├── dishes/                         # Imagens WebP dos pratos
+│   └── users/                          # Imagens WebP de perfil dos usuários
 ├── .env.example                        # Template de variáveis de ambiente
 ├── package.json                        # Dependências (multer, sharp, resend, bcryptjs, etc.)
 └── server.js                           # Ponto de entrada: inicializa o servidor HTTP na porta 3000
@@ -89,55 +94,62 @@ Cada módulo adota a separação de responsabilidades em camadas bem definidas:
                       │
                       ▼
                [ Middlewares ]   ────► authMiddleware: valida "Authorization: Bearer <token>"
-                      │          ────► upload.middleware: valida multipart e buffer em memória
+                      │          ────► upload.middleware: valida MIME, tamanho e buffer em memória
                       │
                       ▼
-             [ Controller ]      ────► Recebe req, extrai dados (body, params, file),
+              [ Controller ]      ────► Recebe req, extrai dados (body, params, file, req.user),
                       │                chama o Service e retorna res com status HTTP adequado.
                       │
                       ▼
-              [ Service ]        ────► Regras de negócio, hashing, validações de domínio,
+               [ Service ]        ────► Regras de negócio, hashing, validações de domínio,
                       │                geração de JWT e orquestração de persistência e eventos.
                       │
           ┌───────────┴────────────────────────┐
           ▼                                    ▼
 [ Database (Prisma ORM) ]       [ Shared Modules ]
 (Operação Principal)            - email.service.js (Resend)
-                                - image.service.js (Sharp / WebP)
+                                - image.service.js (Sharp / WebP -> dishes & users)
 ```
 
 ---
 
-## 4. Gerenciamento do Cardápio e Processamento de Imagens
+## 4. Fluxos de Cardápio e Upload Compartilhado de Imagens
 
-O gerenciamento de pratos e fotos segue dois fluxos desacoplados:
-
-### A. Cadastro de Prato (`POST /restaurants/:restaurantId/dishes`)
-1. Cliente envia JSON com `name`, `description` e `price`.
-2. `authMiddleware` valida o token JWT.
-3. `dishService.createDish` valida a existência do restaurante no banco.
+### A. Cadastro de Prato e Validações (`POST /restaurants/:restaurantId/dishes`)
+1. `authMiddleware` valida o token JWT.
+2. `dishService.createDish` valida `restaurantId` como inteiro positivo (`400`), exige `name` e `description` não vazios (`400`), converte/valida `price >= 0` (`400`) e confirma a existência do restaurante no banco (`404` se inexistente).
+3. `dishController` respeita `error.statusCode` ao delegar exceções de domínio para o middleware de erro/resposta HTTP.
 4. O prato é persistido com `imageUrl: null` inicialmente, retornando `201 Created`.
 
-### B. Upload de Imagem do Prato (`POST /dishes/:dishId/image`)
-1. Cliente envia formulário `multipart/form-data` com o campo `image`.
-2. `upload.middleware.js` (Multer) intercepta a requisição, validando o tipo MIME (`image/jpeg`, `image/png`, `image/webp`) e tamanho máximo (5 MB).
-3. `dishService.uploadDishImage` localiza o prato.
-4. `image.service.js` (Sharp) recebe o buffer em memória, corrige orientação com `.rotate()`, redimensiona para largura máxima de 800px, converte para WebP (qualidade 80) e salva o arquivo em `uploads/dishes/<uuid>.webp`.
-5. O Prisma atualiza o campo `imageUrl` do prato.
-6. A imagem pode ser acessada publicamente no navegador através da rota `/uploads/dishes/<uuid>.webp`.
+### B. Processamento Compartilhado de Imagens (`image.service.js` + `upload.middleware.js`)
+O mesmo pipeline é reutilizado por **usuários** (`POST /auth/me/image` -> `folder = 'users'`) e **pratos** (`POST /dishes/:dishId/image` -> `folder = 'dishes'`):
+1. `authMiddleware` garante autenticação JWT. No upload de perfil, `req.user.id` identifica o usuário sem aceitar IDs arbitrários no corpo ou rota.
+2. `upload.middleware.js` (Multer) intercepta o campo `image`, aceitando apenas `image/jpeg`, `image/png` ou `image/webp` até 5 MB.
+3. O service de domínio (`authService.uploadProfileImage` ou `dishService.uploadDishImage`) confirma que o registro existe (`404` caso contrário) e chama `imageService.optimizeImage(buffer, folder)`.
+4. `imageService.optimizeImage` valida o buffer, aplica `.rotate()` (EXIF), `.resize({ width: 800, withoutEnlargement: true })`, converte para `.webp({ quality: 80 })` e grava em `uploads/<folder>/<uuid>.webp` (convertendo falhas de decodificação em `400 Bad Request`).
+5. O Prisma atualiza o campo `imageUrl` do usuário ou do prato e devolve o caminho `/uploads/<folder>/<uuid>.webp`, servido publicamente pelo Express.
 
 ---
 
 ## 5. Catálogo de Endpoints da API
 
+### Módulo de Autenticação e Perfil (`/auth`)
+
+| Método | Endpoint | Acesso | Descrição | Resposta de Sucesso |
+|---|---|---|---|---|
+| `POST` | `/auth/register` | **Público** | Cadastra novo usuário com senha hasheada (bcrypt) | `201 Created` |
+| `POST` | `/auth/login` | **Público** | Valida credenciais e devolve token JWT | `200 OK` (token + dados do user) |
+| `GET` | `/auth/me` | **Protegido** | Retorna os dados do usuário autenticado (incluindo `imageUrl`) | `200 OK` |
+| `POST` | `/auth/me/image` | **Protegido** | Faz upload, otimiza com Sharp (`uploads/users/`) e vincula avatar ao usuário do JWT | `200 OK` (usuário atualizado com `imageUrl`) |
+
 ### Módulo de Cardápio (`/dishes` e `/restaurants/:id/dishes`)
 
 | Método | Endpoint | Acesso | Descrição | Resposta de Sucesso |
 |---|---|---|---|---|
-| `GET` | `/restaurants/:restaurantId/dishes` | **Público** | Lista os pratos do cardápio do restaurante | `200 OK` (array de pratos) |
+| `GET` | `/restaurants/:restaurantId/dishes` | **Público** | Lista os pratos do cardápio do restaurante (com `imageUrl`) | `200 OK` (array de pratos) |
 | `POST` | `/restaurants/:restaurantId/dishes` | **Protegido** | Cadastra um novo prato no cardápio | `201 Created` |
-| `POST` | `/dishes/:dishId/image` | **Protegido** | Faz upload, otimiza com Sharp e vincula foto ao prato | `200 OK` (prato atualizado com `imageUrl`) |
-| `GET` | `/uploads/dishes/:filename` | **Público** | Acesso estático direto à imagem otimizada (.webp) | `200 OK` (arquivo binário WebP) |
+| `POST` | `/dishes/:dishId/image` | **Protegido** | Faz upload, otimiza com Sharp (`uploads/dishes/`) e vincula foto ao prato | `200 OK` (prato atualizado com `imageUrl`) |
+| `GET` | `/uploads/:folder/:filename` | **Público** | Acesso estático direto às imagens otimizadas (`users` ou `dishes`) | `200 OK` (arquivo binário WebP) |
 
 ### Módulo de Restaurantes (`/restaurants`)
 
@@ -148,14 +160,6 @@ O gerenciamento de pratos e fotos segue dois fluxos desacoplados:
 | `POST` | `/restaurants` | **Protegido** | Cadastra restaurante e dispara e-mails via Resend | `201 Created` |
 | `PUT` | `/restaurants/:id` | **Protegido** | Atualiza dados cadastrais de um restaurante | `200 OK` |
 | `DELETE` | `/restaurants/:id`| **Protegido** | Remove um restaurante do sistema | `200 OK` |
-
-### Módulo de Autenticação (`/auth`)
-
-| Método | Endpoint | Acesso | Descrição | Resposta de Sucesso |
-|---|---|---|---|---|
-| `POST` | `/auth/register` | **Público** | Cadastra novo usuário com senha hasheada (bcrypt) | `201 Created` |
-| `POST` | `/auth/login` | **Público** | Valida credenciais e devolve token JWT | `200 OK` (token + dados do user) |
-| `GET` | `/auth/me` | **Protegido** | Retorna os dados do usuário autenticado | `200 OK` |
 
 ### Verificação de Saúde (`/health`)
 

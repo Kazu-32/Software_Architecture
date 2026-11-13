@@ -2,7 +2,7 @@ const authService = require('./auth.service');
 
 /**
  * Controller de Autenticação:
- * Ponto de entrada das requisições HTTP para registro, login e perfil.
+ * Ponto de entrada das requisições HTTP para registro, login, perfil e avatar.
  */
 class AuthController {
   /**
@@ -41,6 +41,30 @@ class AuthController {
   async me(req, res, next) {
     try {
       const user = await authService.getProfile(req.user.id);
+      return res.status(200).json(user);
+    } catch (error) {
+      next(error);
+    }
+  }
+
+  /**
+   * POST /auth/me/image
+   * Faz upload, otimiza e vincula a imagem de perfil ao usuário autenticado via JWT
+   */
+  async uploadProfileImage(req, res, next) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({
+          error: 'Nenhuma imagem enviada',
+          statusCode: 400,
+        });
+      }
+
+      const user = await authService.uploadProfileImage(
+        req.user.id,
+        req.file.buffer
+      );
+
       return res.status(200).json(user);
     } catch (error) {
       next(error);

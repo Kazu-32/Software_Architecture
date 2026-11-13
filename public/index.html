@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Easy Food — Catálogo de Restaurantes e Cardápios</title>
+  <meta name="description" content="Explore restaurantes, consulte cardápios e gerencie pratos e perfis na Easy Food.">
+  <meta property="og:title" content="Easy Food — Catálogo de Restaurantes e Cardápios">
+  <meta property="og:description" content="Explore restaurantes, consulte cardápios e gerencie pratos e perfis na Easy Food.">
+  <meta property="og:type" content="website">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a href="#catalogo" class="brand-wordmark">EasyFood</a>
+
+      <nav class="topbar-nav" aria-label="Navegação principal">
+        <a href="#catalogo" class="nav-link">Restaurantes</a>
+        <button type="button" id="openNewRestaurantBtn" class="nav-link nav-btn">Cadastrar Restaurante</button>
+        <button type="button" id="openAccountNavBtn" class="nav-link nav-btn">Minha Conta</button>
+      </nav>
+
+      <div class="topbar-actions">
+        <button type="button" id="headerAuthBtn" class="btn btn-primary">Entrar</button>
+      </div>
+    </div>
+  </header>
+
+  <main id="catalogo" class="page-container">
+    <section class="hero-band">
+      <div class="hero-copy">
+        <h1>Restaurantes e cardápios da cidade</h1>
+        <p class="hero-subtitle">Descubra cozinhas locais, explore os pratos disponíveis e gerencie estabelecimentos autenticados.</p>
+      </div>
+
+      <div class="controls-toolbar" role="search">
+        <div class="search-field">
+          <label for="searchInput" class="sr-only">Buscar restaurante por nome ou categoria</label>
+          <input
+            type="search"
+            id="searchInput"
+            class="input"
+            placeholder="Buscar por nome ou categoria..."
+          >
+        </div>
+
+        <div class="select-group">
+          <label for="categoryFilter" class="sr-only">Filtrar por categoria</label>
+          <select id="categoryFilter" class="select">
+            <option value="">Todas as categorias</option>
+          </select>
+
+          <label for="sortFilter" class="sr-only">Ordenar resultados</label>
+          <select id="sortFilter" class="select">
+            <option value="id-asc">Ordem padrão</option>
+            <option value="rating-desc">Melhor avaliação</option>
+            <option value="name-asc">Nome (A–Z)</option>
+          </select>
+        </div>
+      </div>
+    </section>
+
+    <section aria-labelledby="catalogHeading" class="catalog-section">
+      <div class="section-header">
+        <h2 id="catalogHeading">Estabelecimentos</h2>
+        <span id="restaurantCount" class="muted-meta tabular-nums"></span>
+      </div>
+
+      <div id="restaurantGrid" class="restaurant-grid" aria-live="polite">
+        <div class="state-box">Carregando restaurantes...</div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <span>EasyFood</span>
+      <span aria-hidden="true">·</span>
+      <span>Arquitetura Modular &amp; Cardápios</span>
+    </div>
+  </footer>
+
+  <!-- Drawer / Modal do Cardápio do Restaurante -->
+  <dialog id="menuDialog" class="dialog dialog-wide" aria-labelledby="menuDialogTitle">
+    <div class="dialog-header">
+      <div>
+        <div id="menuRestaurantMeta" class="muted-meta"></div>
+        <h2 id="menuDialogTitle" class="dialog-title">Cardápio</h2>
+      </div>
+      <button type="button" id="closeMenuDialogBtn" class="btn btn-ghost" aria-label="Fechar cardápio">Fechar</button>
+    </div>
+
+    <div class="dialog-body">
+      <div id="menuAlert" class="alert" role="alert"></div>
+
+      <section aria-label="Lista de pratos">
+        <div id="dishList" class="dish-grid"></div>
+      </section>
+
+      <section class="drawer-form-section" aria-labelledby="addDishHeading">
+        <div class="section-header-sm">
+          <h3 id="addDishHeading">Adicionar prato ao cardápio</h3>
+        </div>
+
+        <div id="dishAuthNotice" class="auth-notice hidden">
+          <p>Faça login para adicionar novos pratos ou enviar fotos para este cardápio.</p>
+          <button type="button" id="dishLoginPromptBtn" class="btn btn-secondary">Entrar na conta</button>
+        </div>
+
+        <form id="dishForm" class="stack-form">
+          <div class="form-row-2">
+            <div class="form-field">
+              <label for="dishName">Nome do prato *</label>
+              <input type="text" id="dishName" class="input" required placeholder="Ex: Pizza Margherita">
+            </div>
+            <div class="form-field">
+              <label for="dishPrice">Preço (R$) *</label>
+              <input type="number" id="dishPrice" class="input tabular-nums" step="0.01" min="0" required placeholder="49.90">
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="dishDescription">Descrição *</label>
+            <textarea id="dishDescription" class="input textarea" rows="2" required placeholder="Ex: Molho de tomate artesanal, mussarela fresca e manjericão"></textarea>
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Cadastrar Prato</button>
+          </div>
+        </form>
+      </section>
+    </div>
+  </dialog>
+
+  <!-- Modal Cadastrar Restaurante -->
+  <dialog id="restaurantDialog" class="dialog" aria-labelledby="restaurantDialogTitle">
+    <div class="dialog-header">
+      <h2 id="restaurantDialogTitle" class="dialog-title">Cadastrar Restaurante</h2>
+      <button type="button" id="closeRestaurantDialogBtn" class="btn btn-ghost" aria-label="Fechar cadastro de restaurante">Fechar</button>
+    </div>
+
+    <div class="dialog-body">
+      <div id="restaurantAlert" class="alert" role="alert"></div>
+
+      <div id="restaurantAuthNotice" class="auth-notice hidden">
+        <p>O cadastro de novos restaurantes exige uma conta autenticada.</p>
+        <button type="button" id="restaurantLoginPromptBtn" class="btn btn-secondary">Entrar na conta</button>
+      </div>
+
+      <form id="restaurantForm" class="stack-form">
+        <div class="form-field">
+          <label for="restName">Nome do restaurante *</label>
+          <input type="text" id="restName" class="input" required placeholder="Ex: Cantina da Nonna">
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="restCategory">Categoria *</label>
+            <input type="text" id="restCategory" class="input" required placeholder="Ex: Italiana">
+          </div>
+          <div class="form-field">
+            <label for="restRating">Avaliação (0 a 5) *</label>
+            <input type="number" id="restRating" class="input tabular-nums" step="0.1" min="0" max="5" required placeholder="4.7">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn btn-primary">Salvar Restaurante</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- Modal Autenticação / Perfil -->
+  <dialog id="accountDialog" class="dialog" aria-labelledby="accountDialogTitle">
+    <div class="dialog-header">
+      <h2 id="accountDialogTitle" class="dialog-title">Minha Conta</h2>
+      <button type="button" id="closeAccountDialogBtn" class="btn btn-ghost" aria-label="Fechar janela de conta">Fechar</button>
+    </div>
+
+    <div class="dialog-body">
+      <div id="accountAlert" class="alert" role="alert"></div>
+
+      <!-- Estado não autenticado -->
+      <div id="authFormsWrapper">
+        <div class="segmented-tabs" role="tablist">
+          <button type="button" role="tab" id="tabLogin" class="tab-btn active" aria-selected="true">Entrar</button>
+          <button type="button" role="tab" id="tabRegister" class="tab-btn" aria-selected="false">Criar Conta</button>
+        </div>
+
+        <form id="loginForm" class="stack-form">
+          <div class="form-field">
+            <label for="loginEmail">E-mail *</label>
+            <input type="email" id="loginEmail" class="input" required placeholder="voce@exemplo.com">
+          </div>
+          <div class="form-field">
+            <label for="loginPassword">Senha *</label>
+            <input type="password" id="loginPassword" class="input" required placeholder="Sua senha">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Entrar</button>
+          </div>
+        </form>
+
+        <form id="registerForm" class="stack-form hidden">
+          <div class="form-field">
+            <label for="regName">Nome completo *</label>
+            <input type="text" id="regName" class="input" required placeholder="Ex: Maria Oliveira">
+          </div>
+          <div class="form-field">
+            <label for="regEmail">E-mail *</label>
+            <input type="email" id="regEmail" class="input" required placeholder="maria@exemplo.com">
+          </div>
+          <div class="form-field">
+            <label for="regPassword">Senha (mín. 6 caracteres) *</label>
+            <input type="password" id="regPassword" class="input" minlength="6" required placeholder="Mínimo 6 caracteres">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Criar Conta</button>
+          </div>
+        </form>
+      </div>
+
+      <!-- Estado autenticado (Perfil + Upload de foto) -->
+      <div id="profileWrapper" class="hidden">
+        <div class="profile-card">
+          <div id="profileAvatarPreview" class="profile-avatar"></div>
+          <div class="profile-details">
+            <h3 id="profileName" class="profile-name"></h3>
+            <p id="profileEmail" class="profile-email"></p>
+          </div>
+        </div>
+
+        <form id="profileImageForm" class="profile-upload-box">
+          <label for="profileImageInput" class="form-label-block">Foto de perfil (JPEG, PNG ou WebP até 5 MB)</label>
+          <div class="upload-row">
+            <input type="file" id="profileImageInput" class="file-input" accept="image/jpeg,image/png,image/webp" required>
+            <button type="submit" class="btn btn-secondary">Atualizar Foto</button>
+          </div>
+        </form>
+
+        <div class="profile-footer">
+          <button type="button" id="logoutBtn" class="btn btn-ghost-danger">Sair da conta</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="/app.js"></script>
+</body>
+</html>
